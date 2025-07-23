@@ -1,0 +1,21 @@
+{
+    "type": "package",
+    "name": "albertdahlin/elm-schema",
+    "summary": "Describe types using schema",
+    "license": "MIT",
+    "version": "1.1.0",
+    "exposed-modules": [
+        "Schema",
+        "Schema.Type",
+        "Schema.Fuzzer",
+        "Schema.Type.JsonSchema"
+    ],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "elm/core": "1.0.1 <= v < 2.0.0",
+        "elm/json": "1.1.0 <= v < 2.0.0",
+        "elm-explorations/test": "2.2.0 <= v < 3.0.0"
+    },
+    "test-dependencies": {
+    }
+}
