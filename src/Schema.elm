@@ -5,7 +5,7 @@ module Schema exposing
     , RecordBuilder, record, field, buildRecord
     , CustomBuilder, custom, variant0, variant1, variant2, variant3, buildCustom
     , lazy
-    , toType, label, description
+    , toType
     , encode, decoder
     , newVersion, dropVersions
     )
@@ -169,16 +169,12 @@ type Type
 
 type alias Meta =
     { type_ : Type
-    , description : Maybe String
-    , label : Maybe String
     }
 
 
 emptyMeta : Type -> Meta
 emptyMeta type_ =
     { type_ = type_
-    , description = Nothing
-    , label = Nothing
     }
 
 
@@ -657,30 +653,6 @@ buildCustom (CustomBuilder c) =
 
 {-| TODO: document
 -}
-description : String -> Schema a -> Schema a
-description desc (Schema s) =
-    let
-        meta =
-            s.meta
-    in
-    Schema
-        { s | meta = { meta | description = Just desc } }
-
-
-{-| TODO: document
--}
-label : String -> Schema a -> Schema a
-label t (Schema s) =
-    let
-        meta =
-            s.meta
-    in
-    Schema
-        { s | meta = { meta | label = Just t } }
-
-
-{-| TODO: document
--}
 toType : Schema a -> ExtType.Node
 toType (Schema s) =
     toExternalType Set.empty s.meta
@@ -689,8 +661,6 @@ toType (Schema s) =
 toExtMeta : Meta -> ExtType.Type -> ExtType.Node
 toExtMeta meta type_ =
     { type_ = type_
-    , description = meta.description
-    , label = meta.label
     }
 
 

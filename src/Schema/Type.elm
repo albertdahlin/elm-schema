@@ -47,8 +47,6 @@ type alias CustomType_Args =
 -}
 type alias Node =
     { type_ : Type
-    , description : Maybe String
-    , label : Maybe String
     }
 
 

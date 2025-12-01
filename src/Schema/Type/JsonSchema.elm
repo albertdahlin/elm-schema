@@ -43,15 +43,8 @@ fromType name meta =
 
 toSchemaObject : Type.Node -> String -> List ( String, Value )
 toSchemaObject meta type_ =
-    case meta.description of
-        Just desc ->
-            [ ( "type", JE.string type_ )
-            , ( "description", JE.string desc )
-            ]
-
-        Nothing ->
-            [ ( "type", JE.string type_ )
-            ]
+    [ ( "type", JE.string type_ )
+    ]
 
 
 toJsonSchemaHelp : Type.Node -> List ( String, Value )
