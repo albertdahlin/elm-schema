@@ -1,8 +1,8 @@
-module Schema.Type.JsonSchema exposing (fromType)
+module Schema.Type.JsonSchema exposing (fromType, Meta)
 
 {-| Generate a JSON Schema (Draft 7) from a `Schema.Type.Node`
 
-@docs fromType
+@docs fromType, Meta
 
 -}
 
@@ -12,9 +12,19 @@ import Json.Encode as JE exposing (Value)
 import Schema.Type as Type exposing (Type)
 
 
+type alias Node m =
+    Type.Node (Meta m)
+
+
+type alias Meta m =
+    { m
+        | description : Maybe String
+    }
+
+
 {-| TODO: document
 -}
-fromType : String -> Type.Node m -> Value
+fromType : String -> Node m -> Value
 fromType name meta =
     let
         defs =
@@ -41,13 +51,20 @@ fromType name meta =
         ]
 
 
-toSchemaObject : Type.Node m -> String -> List ( String, Value )
-toSchemaObject meta type_ =
-    [ ( "type", JE.string type_ )
-    ]
+toSchemaObject : Node m -> String -> List ( String, Value )
+toSchemaObject node type_ =
+    ( "type", JE.string type_ )
+        :: (case node.meta.description of
+                Just desc ->
+                    [ ( "description", JE.string desc )
+                    ]
+
+                Nothing ->
+                    []
+           )
 
 
-toJsonSchemaHelp : Type.Node m -> List ( String, Value )
+toJsonSchemaHelp : Node m -> List ( String, Value )
 toJsonSchemaHelp meta =
     case meta.type_ of
         Type.String opts ->
@@ -145,7 +162,7 @@ toJsonSchemaHelp meta =
             ]
 
 
-toJsonSchema_Named : Type.Node m -> Value
+toJsonSchema_Named : Node m -> Value
 toJsonSchema_Named meta =
     case meta.type_ of
         Type.CustomType args ->
@@ -155,7 +172,7 @@ toJsonSchema_Named meta =
             JE.object (toJsonSchemaHelp meta)
 
 
-toJsonSchema_Custom : List { name : String, args : List (Type.Node m) } -> Value
+toJsonSchema_Custom : List { name : String, args : List (Node m) } -> Value
 toJsonSchema_Custom variants =
     JE.object
         [ ( "anyOf"
@@ -176,7 +193,7 @@ toJsonSchema_Tag name =
     )
 
 
-toJsonSchema_Variant : String -> List (Type.Node m) -> Value
+toJsonSchema_Variant : String -> List (Node m) -> Value
 toJsonSchema_Variant name metas =
     JE.object
         [ ( "type", JE.string "object" )
@@ -205,7 +222,7 @@ toJsonSchema_Variant name metas =
         ]
 
 
-toJsonSchema_Tuple : List (Type.Node m) -> List ( String, Value )
+toJsonSchema_Tuple : List (Node m) -> List ( String, Value )
 toJsonSchema_Tuple metas =
     let
         argsCount =
@@ -219,7 +236,7 @@ toJsonSchema_Tuple metas =
     ]
 
 
-gatherDefs : Type.Node m -> Dict String (List { name : String, args : List (Type.Node m) })
+gatherDefs : Node m -> Dict String (List { name : String, args : List (Node m) })
 gatherDefs meta =
     case meta.type_ of
         Type.Unit ->
