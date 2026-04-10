@@ -656,20 +656,21 @@ buildCustom m (CustomBuilder c) =
 
 {-| TODO: document
 -}
-toType : Schema m a -> ExtType.Node
+toType : Schema m a -> ExtType.Node m
 toType (Schema s) =
     toExternalType Set.empty s.meta
 
 
-toExtMeta : Meta m -> ExtType.Type -> ExtType.Node
+toExtMeta : Meta m -> ExtType.Type m -> ExtType.Node m
 toExtMeta meta type_ =
     { type_ = type_
+    , meta = meta.meta
     }
 
 
 {-| TODO: document
 -}
-toExternalType : Set String -> Meta m -> ExtType.Node
+toExternalType : Set String -> Meta m -> ExtType.Node m
 toExternalType namesSeen meta =
     case meta.type_ of
         Custom name vs ->

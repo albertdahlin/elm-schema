@@ -14,7 +14,7 @@ import Schema.Type as Type exposing (Type)
 
 {-| TODO: document
 -}
-fromType : String -> Type.Node -> Value
+fromType : String -> Type.Node m -> Value
 fromType name meta =
     let
         defs =
@@ -41,13 +41,13 @@ fromType name meta =
         ]
 
 
-toSchemaObject : Type.Node -> String -> List ( String, Value )
+toSchemaObject : Type.Node m -> String -> List ( String, Value )
 toSchemaObject meta type_ =
     [ ( "type", JE.string type_ )
     ]
 
 
-toJsonSchemaHelp : Type.Node -> List ( String, Value )
+toJsonSchemaHelp : Type.Node m -> List ( String, Value )
 toJsonSchemaHelp meta =
     case meta.type_ of
         Type.String opts ->
@@ -145,7 +145,7 @@ toJsonSchemaHelp meta =
             ]
 
 
-toJsonSchema_Named : Type.Node -> Value
+toJsonSchema_Named : Type.Node m -> Value
 toJsonSchema_Named meta =
     case meta.type_ of
         Type.CustomType args ->
@@ -155,7 +155,7 @@ toJsonSchema_Named meta =
             JE.object (toJsonSchemaHelp meta)
 
 
-toJsonSchema_Custom : List { name : String, args : List Type.Node } -> Value
+toJsonSchema_Custom : List { name : String, args : List (Type.Node m) } -> Value
 toJsonSchema_Custom variants =
     JE.object
         [ ( "anyOf"
@@ -176,7 +176,7 @@ toJsonSchema_Tag name =
     )
 
 
-toJsonSchema_Variant : String -> List Type.Node -> Value
+toJsonSchema_Variant : String -> List (Type.Node m) -> Value
 toJsonSchema_Variant name metas =
     JE.object
         [ ( "type", JE.string "object" )
@@ -205,7 +205,7 @@ toJsonSchema_Variant name metas =
         ]
 
 
-toJsonSchema_Tuple : List Type.Node -> List ( String, Value )
+toJsonSchema_Tuple : List (Type.Node m) -> List ( String, Value )
 toJsonSchema_Tuple metas =
     let
         argsCount =
@@ -219,7 +219,7 @@ toJsonSchema_Tuple metas =
     ]
 
 
-gatherDefs : Type.Node -> Dict String (List { name : String, args : List Type.Node })
+gatherDefs : Type.Node m -> Dict String (List { name : String, args : List (Type.Node m) })
 gatherDefs meta =
     case meta.type_ of
         Type.Unit ->

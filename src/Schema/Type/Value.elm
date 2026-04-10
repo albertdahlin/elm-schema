@@ -94,12 +94,12 @@ encode state =
                 |> JE.object
 
 
-decoder : Type.Node -> JD.Decoder Value
+decoder : Type.Node m -> JD.Decoder Value
 decoder meta =
     decoderHelp (Type.gatherNamed meta) meta
 
 
-decoderHelp : Dict String Type.Node -> Type.Node -> JD.Decoder Value
+decoderHelp : Dict String (Type.Node m) -> Type.Node m -> JD.Decoder Value
 decoderHelp namedTypes meta =
     case meta.type_ of
         Type.Unit ->

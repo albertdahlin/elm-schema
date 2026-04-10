@@ -22,12 +22,12 @@ type alias Record =
     }
 
 
-schema_Record : Schema Record
+schema_Record : Schema () Record
 schema_Record =
     Schema.record Record
-        |> Schema.field "id" .id Schema.string
-        |> Schema.field "value" .value Schema.int
-        |> Schema.buildRecord
+        |> Schema.field "id" .id (Schema.string ())
+        |> Schema.field "value" .value (Schema.int ())
+        |> Schema.buildRecord ()
 
 
 
@@ -41,7 +41,7 @@ type CustomType
     | Three String Int Float
 
 
-schema_CustomType : Schema CustomType
+schema_CustomType : Schema () CustomType
 schema_CustomType =
     Schema.custom "CustomType"
         (\zero toOne toTwo toThree value ->
@@ -59,10 +59,10 @@ schema_CustomType =
                     toThree str i f
         )
         |> Schema.variant0 "Zero" Zero
-        |> Schema.variant1 "One" One Schema.string
-        |> Schema.variant2 "Two" Two Schema.string Schema.int
-        |> Schema.variant3 "Three" Three Schema.string Schema.int Schema.float
-        |> Schema.buildCustom
+        |> Schema.variant1 "One" One (Schema.string ())
+        |> Schema.variant2 "Two" Two (Schema.string ()) (Schema.int ())
+        |> Schema.variant3 "Three" Three (Schema.string ()) (Schema.int ()) (Schema.float ())
+        |> Schema.buildCustom ()
 
 
 
@@ -73,7 +73,7 @@ type Tree a
     = Node a (List (Tree a))
 
 
-schema_Tree : String -> Schema a -> Schema (Tree a)
+schema_Tree : String -> Schema () a -> Schema () (Tree a)
 schema_Tree typeName nodeSchema =
     Schema.custom typeName
         (\nodeConstructor value ->
@@ -84,8 +84,8 @@ schema_Tree typeName nodeSchema =
         |> Schema.variant2 "Node"
             Node
             nodeSchema
-            (Schema.list
-                (Schema.lazy typeName
+            (Schema.list ()
+                (Schema.lazy () typeName
                     (\_ ->
                         schema_Tree
                             typeName
@@ -93,7 +93,7 @@ schema_Tree typeName nodeSchema =
                     )
                 )
             )
-        |> Schema.buildCustom
+        |> Schema.buildCustom ()
 
 
 
@@ -108,7 +108,7 @@ type RB
     = RB String (List RA)
 
 
-schema_RA : Schema RA
+schema_RA : Schema () RA
 schema_RA =
     Schema.custom "RA"
         (\raConstructor value ->
@@ -118,12 +118,12 @@ schema_RA =
         )
         |> Schema.variant2 "RA"
             RA
-            Schema.int
-            (Schema.list (Schema.lazy "RB" (\_ -> schema_RB)))
-        |> Schema.buildCustom
+            (Schema.int ())
+            (Schema.list () (Schema.lazy () "RB" (\_ -> schema_RB)))
+        |> Schema.buildCustom ()
 
 
-schema_RB : Schema RB
+schema_RB : Schema () RB
 schema_RB =
     Schema.custom "RB"
         (\rbConstructor value ->
@@ -133,9 +133,9 @@ schema_RB =
         )
         |> Schema.variant2 "RB"
             RB
-            Schema.string
-            (Schema.list (Schema.lazy "RA" (\_ -> schema_RA)))
-        |> Schema.buildCustom
+            (Schema.string ())
+            (Schema.list () (Schema.lazy () "RA" (\_ -> schema_RA)))
+        |> Schema.buildCustom ()
 
 
 testIsRecursive : Test
@@ -175,24 +175,24 @@ type alias All =
     }
 
 
-schema_All : Schema All
+schema_All : Schema () All
 schema_All =
     Schema.record All
-        |> Schema.field "id" .id Schema.string
-        |> Schema.field "value" .value Schema.int
-        |> Schema.field "float" .float Schema.float
-        |> Schema.field "bool" .bool Schema.bool
-        |> Schema.field "maybe" .maybe (Schema.maybe Schema.int)
-        |> Schema.field "list" .list (Schema.list Schema.string)
-        |> Schema.field "dict" .dict (Schema.dict (Schema.list Schema.string) Schema.int)
-        |> Schema.field "array" .array (Schema.array Schema.string)
-        |> Schema.field "set" .set (Schema.set (Schema.list Schema.int))
+        |> Schema.field "id" .id (Schema.string ())
+        |> Schema.field "value" .value (Schema.int ())
+        |> Schema.field "float" .float (Schema.float ())
+        |> Schema.field "bool" .bool (Schema.bool ())
+        |> Schema.field "maybe" .maybe (Schema.maybe () (Schema.int ()))
+        |> Schema.field "list" .list (Schema.list () (Schema.string ()))
+        |> Schema.field "dict" .dict (Schema.dict () (Schema.list () (Schema.string ())) (Schema.int ()))
+        |> Schema.field "array" .array (Schema.array () (Schema.string ()))
+        |> Schema.field "set" .set (Schema.set () (Schema.list () (Schema.int ())))
         |> Schema.field "record" .record schema_Record
         |> Schema.field "custom" .custom schema_CustomType
-        |> Schema.field "pair" .pair (Schema.pair Schema.string Schema.int)
-        |> Schema.field "triple" .triple (Schema.triple Schema.string Schema.int Schema.float)
+        |> Schema.field "pair" .pair (Schema.pair () (Schema.string ()) (Schema.int ()))
+        |> Schema.field "triple" .triple (Schema.triple () (Schema.string ()) (Schema.int ()) (Schema.float ()))
         |> Schema.field "recursive" .recursive schema_RA
-        |> Schema.buildRecord
+        |> Schema.buildRecord ()
 
 
 fuzzer_RA : Int -> Fuzzer RA
@@ -257,12 +257,12 @@ type alias V1 =
     }
 
 
-schema_V1 : Schema V1
+schema_V1 : Schema () V1
 schema_V1 =
     Schema.record V1
-        |> Schema.field "id" .id Schema.string
-        |> Schema.field "value" .value Schema.int
-        |> Schema.buildRecord
+        |> Schema.field "id" .id (Schema.string ())
+        |> Schema.field "value" .value (Schema.int ())
+        |> Schema.buildRecord ()
 
 
 fuzz_V1 : Fuzzer V1
@@ -279,16 +279,16 @@ type alias V2 =
     }
 
 
-schema_V2 : Schema V2
+schema_V2 : Schema () V2
 schema_V2 =
     schema_V1
         |> Schema.newVersion "v2"
             v1_to_v2
             (Schema.record V2
-                |> Schema.field "id" .id Schema.string
-                |> Schema.field "value" .value Schema.int
-                |> Schema.field "newField" .newField Schema.float
-                |> Schema.buildRecord
+                |> Schema.field "id" .id (Schema.string ())
+                |> Schema.field "value" .value (Schema.int ())
+                |> Schema.field "newField" .newField (Schema.float ())
+                |> Schema.buildRecord ()
             )
 
 
@@ -338,7 +338,7 @@ versions =
         ]
 
 
-testSchemaFuzzer : String -> Schema a -> Test
+testSchemaFuzzer : String -> Schema m a -> Test
 testSchemaFuzzer name schema =
     Test.fuzz
         (Fuzzer.fromSchema schema)
@@ -353,17 +353,17 @@ testSchemaFuzzer name schema =
 typeFuzzers : Test
 typeFuzzers =
     Test.describe "Type Fuzzers"
-        [ testSchemaFuzzer "String" Schema.string
-        , testSchemaFuzzer "Int" Schema.int
-        , testSchemaFuzzer "Float" Schema.float
-        , testSchemaFuzzer "Bool" Schema.bool
-        , testSchemaFuzzer "List String" (Schema.list Schema.string)
-        , testSchemaFuzzer "Array String" (Schema.array Schema.string)
-        , testSchemaFuzzer "Maybe String" (Schema.maybe Schema.string)
-        , testSchemaFuzzer "Dict String Int" (Schema.dict Schema.string Schema.int)
-        , testSchemaFuzzer "Set Int" (Schema.set Schema.int)
-        , testSchemaFuzzer "Pair String Int" (Schema.pair Schema.string Schema.int)
-        , testSchemaFuzzer "Triple String Int Float" (Schema.triple Schema.string Schema.int Schema.float)
+        [ testSchemaFuzzer "String" (Schema.string ())
+        , testSchemaFuzzer "Int" (Schema.int ())
+        , testSchemaFuzzer "Float" (Schema.float ())
+        , testSchemaFuzzer "Bool" (Schema.bool ())
+        , testSchemaFuzzer "List String" (Schema.list () (Schema.string ()))
+        , testSchemaFuzzer "Array String" (Schema.array () (Schema.string ()))
+        , testSchemaFuzzer "Maybe String" (Schema.maybe () (Schema.string ()))
+        , testSchemaFuzzer "Dict String Int" (Schema.dict () (Schema.string ()) (Schema.int ()))
+        , testSchemaFuzzer "Set Int" (Schema.set () (Schema.int ()))
+        , testSchemaFuzzer "Pair String Int" (Schema.pair () (Schema.string ()) (Schema.int ()))
+        , testSchemaFuzzer "Triple String Int Float" (Schema.triple () (Schema.string ()) (Schema.int ()) (Schema.float ()))
         , testSchemaFuzzer "Record" schema_Record
         , testSchemaFuzzer "CustomType" schema_CustomType
         , testSchemaFuzzer "Recursive RA" schema_RA

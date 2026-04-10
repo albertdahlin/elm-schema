@@ -19,34 +19,35 @@ import Json.Encode as JE exposing (Value)
 
 {-| TODO: document
 -}
-type Type
+type Type m
     = Unit
     | String (Maybe StringOptions)
     | Uuid
     | Bool
     | Int
     | Float
-    | List Node
-    | Array Node
-    | Maybe Node
-    | Dict Node Node
-    | Set Node
-    | Tuple (List Node)
-    | Record (List ( String, Node ))
-    | CustomType CustomType_Args
+    | List (Node m)
+    | Array (Node m)
+    | Maybe (Node m)
+    | Dict (Node m) (Node m)
+    | Set (Node m)
+    | Tuple (List (Node m))
+    | Record (List ( String, Node m ))
+    | CustomType (CustomType_Args m)
     | Recursive String
 
 
-type alias CustomType_Args =
+type alias CustomType_Args m =
     { name : String
-    , variants : List { name : String, args : List Node }
+    , variants : List { name : String, args : List (Node m) }
     }
 
 
 {-| TODO: document
 -}
-type alias Node =
-    { type_ : Type
+type alias Node m =
+    { type_ : Type m
+    , meta : m
     }
 
 
@@ -107,7 +108,7 @@ sanitizeAll ops str =
 
 {-| TODO: document
 -}
-gatherNamed : Node -> Dict String Node
+gatherNamed : Node m -> Dict String (Node m)
 gatherNamed node =
     case node.type_ of
         Unit ->
@@ -172,7 +173,7 @@ gatherNamed node =
             Dict.empty
 
 
-isRecursive : Node -> Bool
+isRecursive : Node m -> Bool
 isRecursive node =
     case node.type_ of
         CustomType args ->
@@ -186,7 +187,7 @@ isRecursive node =
             False
 
 
-isRecursiveHelp : String -> Node -> Bool
+isRecursiveHelp : String -> Node m -> Bool
 isRecursiveHelp name node =
     case node.type_ of
         Unit ->
@@ -239,7 +240,7 @@ isRecursiveHelp name node =
 -- JSON Encoding
 
 
-typeName : Node -> String
+typeName : Node m -> String
 typeName node =
     case node.type_ of
         Unit ->
@@ -290,7 +291,7 @@ typeName node =
             name
 
 
-encode : Node -> Value
+encode : Node m -> Value
 encode node =
     case node.type_ of
         Unit ->

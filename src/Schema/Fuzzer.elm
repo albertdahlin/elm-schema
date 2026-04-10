@@ -17,7 +17,7 @@ import Schema.Type as Type exposing (Type)
 
 {-| TODO: document
 -}
-fromSchema : Schema a -> Fuzzer a
+fromSchema : Schema m a -> Fuzzer a
 fromSchema schema =
     Schema.toType schema
         |> fromType
@@ -36,12 +36,12 @@ fromSchema schema =
 
 {-| TODO: document
 -}
-fromType : Type.Node -> Fuzzer Value
+fromType : Type.Node m -> Fuzzer Value
 fromType meta =
     fromTypeHelp 10 (Type.gatherNamed meta) meta
 
 
-fromTypeHelp : Int -> Dict String Type.Node -> Type.Node -> Fuzzer Value
+fromTypeHelp : Int -> Dict String (Type.Node m) -> Type.Node m -> Fuzzer Value
 fromTypeHelp limit namedTypes meta =
     case meta.type_ of
         Type.Unit ->
@@ -150,7 +150,7 @@ fromTypeHelp limit namedTypes meta =
                     Fuzz.invalid ("Could not find recursive type: " ++ name)
 
 
-variantFuzzers : Int -> Dict String Type.Node -> { name : String, args : List Type.Node } -> Fuzzer Value
+variantFuzzers : Int -> Dict String (Type.Node m) -> { name : String, args : List (Type.Node m) } -> Fuzzer Value
 variantFuzzers limit namedTypes variant =
     List.map (fromTypeHelp limit namedTypes) variant.args
         |> Fuzz.sequence
