@@ -149,40 +149,42 @@ import Set exposing (Set)
 -- SCHEMA
 
 
-type Type
+type Type m
     = Unit {- null -}
     | String (Maybe ExtType.StringOptions)
     | Uuid
     | Bool
     | Int
     | Float
-    | List Meta
-    | Array Meta
-    | Maybe Meta
-    | Dict Meta Meta
-    | Set Meta
-    | Tuple (List Meta)
-    | Record (List ( String, Meta ))
-    | Custom String (List { name : String, args : List Meta })
-    | Lazy String (() -> Meta)
+    | List (Meta m)
+    | Array (Meta m)
+    | Maybe (Meta m)
+    | Dict (Meta m) (Meta m)
+    | Set (Meta m)
+    | Tuple (List (Meta m))
+    | Record (List ( String, Meta m ))
+    | Custom String (List { name : String, args : List (Meta m) })
+    | Lazy String (() -> Meta m)
 
 
-type alias Meta =
-    { type_ : Type
+type alias Meta m =
+    { type_ : Type m
+    , meta : m
     }
 
 
-emptyMeta : Type -> Meta
-emptyMeta type_ =
+emptyMeta : m -> Type m -> Meta m
+emptyMeta m type_ =
     { type_ = type_
+    , meta = m
     }
 
 
 {-| TODO: document
 -}
-type Schema a
+type Schema m a
     = Schema
-        { meta : Meta
+        { meta : Meta m
         , decoder : Decoder a
         , version : Maybe (Version a)
         , encode : a -> Value
@@ -202,10 +204,10 @@ type alias Version a =
 
 {-| TODO: document
 -}
-null : Schema ()
-null =
+null : m -> Schema m ()
+null m =
     Schema
-        { meta = emptyMeta Unit
+        { meta = emptyMeta m Unit
         , decoder = Decode.succeed ()
         , version = Nothing
         , encode = always Encode.null
@@ -214,10 +216,10 @@ null =
 
 {-| TODO: document
 -}
-const : a -> Schema a
-const a =
+const : m -> a -> Schema m a
+const m a =
     Schema
-        { meta = emptyMeta Unit
+        { meta = emptyMeta m Unit
         , decoder = Decode.succeed a
         , version = Nothing
         , encode = always Encode.null
@@ -226,10 +228,10 @@ const a =
 
 {-| A basic string schema. Use `stringWith` to customize options.
 -}
-string : Schema String
-string =
+string : m -> Schema m String
+string m =
     Schema
-        { meta = emptyMeta (String Nothing)
+        { meta = emptyMeta m (String Nothing)
         , decoder = Decode.string
         , version = Nothing
         , encode = Encode.string
@@ -238,10 +240,10 @@ string =
 
 {-| A customizable string schema.
 -}
-stringWith : ExtType.StringOptions -> Schema String
-stringWith opts =
+stringWith : m -> ExtType.StringOptions -> Schema m String
+stringWith m opts =
     Schema
-        { meta = emptyMeta (String (Just opts))
+        { meta = emptyMeta m (String (Just opts))
         , decoder = Decode.string |> Decode.map (ExtType.sanitizeAll opts.sanitize)
         , version = Nothing
         , encode = ExtType.sanitizeAll opts.sanitize >> Encode.string
@@ -250,10 +252,10 @@ stringWith opts =
 
 {-| TODO: document
 -}
-uuid : Schema String
-uuid =
+uuid : m -> Schema m String
+uuid m =
     Schema
-        { meta = emptyMeta Uuid
+        { meta = emptyMeta m Uuid
         , decoder = Decode.string
         , version = Nothing
         , encode = Encode.string
@@ -262,10 +264,10 @@ uuid =
 
 {-| TODO: document
 -}
-bool : Schema Bool
-bool =
+bool : m -> Schema m Bool
+bool m =
     Schema
-        { meta = emptyMeta Bool
+        { meta = emptyMeta m Bool
         , decoder = Decode.bool
         , version = Nothing
         , encode = Encode.bool
@@ -274,10 +276,10 @@ bool =
 
 {-| TODO: document
 -}
-int : Schema Int
-int =
+int : m -> Schema m Int
+int m =
     Schema
-        { meta = emptyMeta Int
+        { meta = emptyMeta m Int
         , decoder = Decode.int
         , version = Nothing
         , encode = Encode.int
@@ -286,10 +288,10 @@ int =
 
 {-| Does not support NaN or Infinity.
 -}
-float : Schema Float
-float =
+float : m -> Schema m Float
+float m =
     Schema
-        { meta = emptyMeta Float
+        { meta = emptyMeta m Float
         , decoder = Decode.float
         , version = Nothing
         , encode = Encode.float
@@ -302,10 +304,10 @@ float =
 
 {-| TODO: document
 -}
-list : Schema a -> Schema (List a)
-list s =
+list : m -> Schema m a -> Schema m (List a)
+list m s =
     Schema
-        { meta = emptyMeta (List (unwrapType s))
+        { meta = emptyMeta m (List (unwrapType s))
         , decoder = Decode.list (decoder s)
         , version = Nothing
         , encode = Encode.list (encode s)
@@ -314,10 +316,10 @@ list s =
 
 {-| TODO: document
 -}
-array : Schema a -> Schema (Array a)
-array s =
+array : m -> Schema m a -> Schema m (Array a)
+array m s =
     Schema
-        { meta = emptyMeta (List (unwrapType s))
+        { meta = emptyMeta m (List (unwrapType s))
         , decoder = Decode.array (decoder s)
         , version = Nothing
         , encode = Encode.array (encode s)
@@ -326,10 +328,10 @@ array s =
 
 {-| TODO: document
 -}
-maybe : Schema a -> Schema (Maybe a)
-maybe s =
+maybe : m -> Schema m a -> Schema m (Maybe a)
+maybe m s =
     Schema
-        { meta = emptyMeta (Maybe (unwrapType s))
+        { meta = emptyMeta m (Maybe (unwrapType s))
         , decoder = Decode.nullable (decoder s)
         , version = Nothing
         , encode =
@@ -345,10 +347,10 @@ maybe s =
 
 {-| TODO: document
 -}
-pair : Schema a -> Schema b -> Schema ( a, b )
-pair sa sb =
+pair : m -> Schema m a -> Schema m b -> Schema m ( a, b )
+pair m sa sb =
     Schema
-        { meta = emptyMeta (Tuple [ unwrapType sa, unwrapType sb ])
+        { meta = emptyMeta m (Tuple [ unwrapType sa, unwrapType sb ])
         , decoder =
             Decode.map2 Tuple.pair
                 (Decode.index 0 (decoder sa))
@@ -366,13 +368,14 @@ pair sa sb =
 {-| TODO: document
 -}
 triple :
-    Schema a
-    -> Schema b
-    -> Schema c
-    -> Schema ( a, b, c )
-triple sa sb sc =
+    m
+    -> Schema m a
+    -> Schema m b
+    -> Schema m c
+    -> Schema m ( a, b, c )
+triple m sa sb sc =
     Schema
-        { meta = emptyMeta (Tuple [ unwrapType sa, unwrapType sb, unwrapType sc ])
+        { meta = emptyMeta m (Tuple [ unwrapType sa, unwrapType sb, unwrapType sc ])
         , decoder =
             Decode.map3 (\a b c -> ( a, b, c ))
                 (Decode.index 0 (decoder sa))
@@ -392,10 +395,10 @@ triple sa sb sc =
 
 {-| TODO: document
 -}
-dict : Schema comparable -> Schema v -> Schema (Dict comparable v)
-dict sk sv =
+dict : m -> Schema m comparable -> Schema m v -> Schema m (Dict comparable v)
+dict m sk sv =
     Schema
-        { meta = emptyMeta (Dict (unwrapType sk) (unwrapType sv))
+        { meta = emptyMeta m (Dict (unwrapType sk) (unwrapType sv))
         , decoder =
             Decode.map2 Tuple.pair
                 (Decode.field "k" (decoder sk))
@@ -417,10 +420,10 @@ dict sk sv =
 
 {-| TODO: document
 -}
-set : Schema comparable -> Schema (Set comparable)
-set s =
+set : m -> Schema m comparable -> Schema m (Set comparable)
+set m s =
     Schema
-        { meta = emptyMeta (Set (unwrapType s))
+        { meta = emptyMeta m (Set (unwrapType s))
         , decoder = Decode.list (decoder s) |> Decode.map Set.fromList
         , version = Nothing
         , encode = Set.toList >> Encode.list (encode s)
@@ -433,9 +436,9 @@ set s =
 
 {-| TODO: document
 -}
-type RecordBuilder constructor record
+type RecordBuilder m constructor record
     = RecordBuilder
-        { fields : List ( String, Meta )
+        { fields : List ( String, Meta m )
         , decoder : Decoder constructor
         , encode : record -> List ( String, Value )
         }
@@ -443,7 +446,7 @@ type RecordBuilder constructor record
 
 {-| TODO: document
 -}
-record : constructor -> RecordBuilder constructor record
+record : constructor -> RecordBuilder m constructor record
 record ctor =
     RecordBuilder
         { fields = []
@@ -457,9 +460,9 @@ record ctor =
 field :
     String
     -> (record -> field)
-    -> Schema field
-    -> RecordBuilder (field -> constructor) record
-    -> RecordBuilder constructor record
+    -> Schema m field
+    -> RecordBuilder m (field -> constructor) record
+    -> RecordBuilder m constructor record
 field name get s (RecordBuilder r) =
     RecordBuilder
         { fields = ( name, unwrapType s ) :: r.fields
@@ -476,10 +479,10 @@ field name get s (RecordBuilder r) =
 
 {-| TODO: document
 -}
-buildRecord : RecordBuilder a a -> Schema a
-buildRecord (RecordBuilder r) =
+buildRecord : m -> RecordBuilder m a a -> Schema m a
+buildRecord m (RecordBuilder r) =
     Schema
-        { meta = emptyMeta (Record (List.reverse r.fields))
+        { meta = emptyMeta m (Record (List.reverse r.fields))
         , decoder = r.decoder
         , version = Nothing
         , encode = \entity -> Encode.object (r.encode entity |> List.reverse)
@@ -492,9 +495,9 @@ buildRecord (RecordBuilder r) =
 
 {-| TODO: document
 -}
-type CustomBuilder match t
+type CustomBuilder m match t
     = CustomBuilder
-        { ctor : List { name : String, args : List Meta }
+        { ctor : List { name : String, args : List (Meta m) }
         , decoder : Dict String (Decoder t)
         , match : match
         , name : String
@@ -503,7 +506,7 @@ type CustomBuilder match t
 
 {-| TODO: document
 -}
-custom : String -> match -> CustomBuilder match t
+custom : String -> match -> CustomBuilder m match t
 custom name match =
     CustomBuilder
         { ctor = []
@@ -537,8 +540,8 @@ variant name match decoderArgs args (CustomBuilder c) =
 variant0 :
     String
     -> v
-    -> CustomBuilder (Value -> a) v
-    -> CustomBuilder a v
+    -> CustomBuilder m (Value -> a) v
+    -> CustomBuilder m a v
 variant0 name val =
     variant
         name
@@ -552,9 +555,9 @@ variant0 name val =
 variant1 :
     String
     -> (a -> v)
-    -> Schema a
-    -> CustomBuilder ((a -> Value) -> b) v
-    -> CustomBuilder b v
+    -> Schema m a
+    -> CustomBuilder m ((a -> Value) -> b) v
+    -> CustomBuilder m b v
 variant1 name ctor s =
     variant
         name
@@ -572,10 +575,10 @@ variant1 name ctor s =
 variant2 :
     String
     -> (a -> b -> v)
-    -> Schema a
-    -> Schema b
-    -> CustomBuilder ((a -> b -> Value) -> c) v
-    -> CustomBuilder c v
+    -> Schema m a
+    -> Schema m b
+    -> CustomBuilder m ((a -> b -> Value) -> c) v
+    -> CustomBuilder m c v
 variant2 name ctor sa sb =
     variant
         name
@@ -599,11 +602,11 @@ variant2 name ctor sa sb =
 variant3 :
     String
     -> (a -> b -> c -> v)
-    -> Schema a
-    -> Schema b
-    -> Schema c
-    -> CustomBuilder ((a -> b -> c -> Value) -> d) v
-    -> CustomBuilder d v
+    -> Schema m a
+    -> Schema m b
+    -> Schema m c
+    -> CustomBuilder m ((a -> b -> c -> Value) -> d) v
+    -> CustomBuilder m d v
 variant3 name ctor sa sb sc =
     variant
         name
@@ -627,10 +630,10 @@ variant3 name ctor sa sb sc =
 
 {-| TODO: document
 -}
-buildCustom : CustomBuilder (a -> Value) a -> Schema a
-buildCustom (CustomBuilder c) =
+buildCustom : m -> CustomBuilder m (a -> Value) a -> Schema m a
+buildCustom m (CustomBuilder c) =
     Schema
-        { meta = emptyMeta (Custom c.name (List.reverse c.ctor))
+        { meta = emptyMeta m (Custom c.name (List.reverse c.ctor))
         , decoder =
             Decode.field "tag" Decode.string
                 |> Decode.andThen
@@ -653,12 +656,12 @@ buildCustom (CustomBuilder c) =
 
 {-| TODO: document
 -}
-toType : Schema a -> ExtType.Node
+toType : Schema m a -> ExtType.Node
 toType (Schema s) =
     toExternalType Set.empty s.meta
 
 
-toExtMeta : Meta -> ExtType.Type -> ExtType.Node
+toExtMeta : Meta m -> ExtType.Type -> ExtType.Node
 toExtMeta meta type_ =
     { type_ = type_
     }
@@ -666,7 +669,7 @@ toExtMeta meta type_ =
 
 {-| TODO: document
 -}
-toExternalType : Set String -> Meta -> ExtType.Node
+toExternalType : Set String -> Meta m -> ExtType.Node
 toExternalType namesSeen meta =
     case meta.type_ of
         Custom name vs ->
@@ -761,7 +764,7 @@ toExternalType namesSeen meta =
 
 {-| TODO: document
 -}
-newVersion : String -> (old -> new) -> Schema new -> Schema old -> Schema new
+newVersion : String -> (old -> new) -> Schema m new -> Schema m old -> Schema m new
 newVersion tag oldToNew (Schema new) (Schema old) =
     let
         version =
@@ -791,7 +794,7 @@ newVersion tag oldToNew (Schema new) (Schema old) =
 
 {-| TODO: document
 -}
-dropVersions : a -> Schema a -> Schema a
+dropVersions : a -> Schema m a -> Schema m a
 dropVersions default (Schema s) =
     case s.version of
         Just version ->
@@ -820,12 +823,12 @@ versionField_val =
     "#val"
 
 
-unwrapType : Schema a -> Meta
+unwrapType : Schema m a -> Meta m
 unwrapType (Schema s) =
     s.meta
 
 
-unwrapVersion : Schema a -> Maybe (Version a)
+unwrapVersion : Schema m a -> Maybe (Version a)
 unwrapVersion sc =
     case sc of
         Schema s ->
@@ -837,10 +840,10 @@ unwrapVersion sc =
 
 
 {-| -}
-lazy : String -> (() -> Schema a) -> Schema a
-lazy name fn =
+lazy : m -> String -> (() -> Schema m a) -> Schema m a
+lazy m name fn =
     Schema
-        { meta = emptyMeta (Lazy name (\_ -> unwrapType (fn ())))
+        { meta = emptyMeta m (Lazy name (\_ -> unwrapType (fn ())))
         , decoder = Decode.lazy (\_ -> decoder (fn ()))
         , version = Nothing
         , encode = \v -> encode (fn ()) v
@@ -861,7 +864,7 @@ encodeTagged tag value =
 
 {-| TODO: document
 -}
-encode : Schema a -> a -> Value
+encode : Schema m a -> a -> Value
 encode (Schema s) value =
     case s.version of
         Just version ->
@@ -894,7 +897,7 @@ decoderTagged latestDecoder version =
 
 {-| TODO: document
 -}
-decoder : Schema a -> Decoder a
+decoder : Schema m a -> Decoder a
 decoder (Schema s) =
     case s.version of
         Just version ->
