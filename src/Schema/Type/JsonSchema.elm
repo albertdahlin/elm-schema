@@ -22,36 +22,25 @@ type alias Meta m =
     }
 
 
-{-| TODO: document
+{-| Generate a raw JSON Schema object from a type node.
 -}
 fromType : String -> Node m -> Value
-fromType name meta =
+fromType name node =
     let
         defs =
-            Type.gatherNamed meta
+            Type.gatherNamed node
     in
-    JE.object
-        [ ( "type", JE.string "json_schema" )
-        , ( "json_schema"
-          , JE.object
-                [ ( "name", JE.string name )
-                , ( "strict", JE.bool True )
-                , ( "schema"
-                  , ( "$defs"
-                    , JE.object
-                        (Dict.toList defs
-                            |> List.map
-                                (\( typeName, def ) ->
-                                    ( String.toLower typeName, toJsonSchema_Named def )
-                                )
-                        )
-                    )
-                        :: toJsonSchemaHelp meta
-                        |> JE.object
-                  )
-                ]
-          )
-        ]
+    ( "$defs"
+    , JE.object
+        (Dict.toList defs
+            |> List.map
+                (\( typeName, def ) ->
+                    ( String.toLower typeName, toJsonSchema_Named def )
+                )
+        )
+    )
+        :: toJsonSchemaHelp node
+        |> JE.object
 
 
 toSchemaObject : Node m -> String -> List ( String, Value )
