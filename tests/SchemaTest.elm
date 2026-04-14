@@ -58,10 +58,10 @@ schema_CustomType =
                 Three str i f ->
                     toThree str i f
         )
-        |> Schema.variant0 "Zero" Zero
-        |> Schema.variant1 "One" One (Schema.string ())
-        |> Schema.variant2 "Two" Two (Schema.string ()) (Schema.int ())
-        |> Schema.variant3 "Three" Three (Schema.string ()) (Schema.int ()) (Schema.float ())
+        |> Schema.variant0 "Zero" () Zero
+        |> Schema.variant1 "One" () One (Schema.string ())
+        |> Schema.variant2 "Two" () Two (Schema.string ()) (Schema.int ())
+        |> Schema.variant3 "Three" () Three (Schema.string ()) (Schema.int ()) (Schema.float ())
         |> Schema.buildCustom ()
 
 
@@ -82,6 +82,7 @@ schema_Tree typeName nodeSchema =
                     nodeConstructor a children
         )
         |> Schema.variant2 "Node"
+            ()
             Node
             nodeSchema
             (Schema.list ()
@@ -117,6 +118,7 @@ schema_RA =
                     raConstructor i rbs
         )
         |> Schema.variant2 "RA"
+            ()
             RA
             (Schema.int ())
             (Schema.list () (Schema.lazy () "RB" (\_ -> schema_RB)))
@@ -132,6 +134,7 @@ schema_RB =
                     rbConstructor str ras
         )
         |> Schema.variant2 "RB"
+            ()
             RB
             (Schema.string ())
             (Schema.list () (Schema.lazy () "RA" (\_ -> schema_RA)))

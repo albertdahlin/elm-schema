@@ -163,7 +163,7 @@ type Type m
     | Set (Meta m)
     | Tuple (List (Meta m))
     | Record (List ( String, Meta m ))
-    | Custom String (List { name : String, args : List (Meta m) })
+    | Custom String (List { name : String, meta : m, args : List (Meta m) })
     | Lazy String (() -> Meta m)
 
 
@@ -507,7 +507,7 @@ buildRecord m (RecordBuilder r) =
 -}
 type CustomBuilder m match t
     = CustomBuilder
-        { ctor : List { name : String, args : List (Meta m) }
+        { ctor : List { name : String, meta : m, args : List (Meta m) }
         , decoder : Dict String (Decoder t)
         , match : match
         , name : String
@@ -526,7 +526,7 @@ custom name match =
         }
 
 
-variant name match decoderArgs args (CustomBuilder c) =
+variant name m match decoderArgs args (CustomBuilder c) =
     let
         enc v =
             Encode.object
@@ -535,7 +535,7 @@ variant name match decoderArgs args (CustomBuilder c) =
                 ]
     in
     CustomBuilder
-        { ctor = { name = name, args = args } :: c.ctor
+        { ctor = { name = name, meta = m, args = args } :: c.ctor
         , decoder =
             Dict.insert name
                 decoderArgs
@@ -549,12 +549,14 @@ variant name match decoderArgs args (CustomBuilder c) =
 -}
 variant0 :
     String
+    -> m
     -> v
     -> CustomBuilder m (Value -> a) v
     -> CustomBuilder m a v
-variant0 name val =
+variant0 name m val =
     variant
         name
+        m
         (\c -> c [])
         (Decode.succeed val)
         []
@@ -564,13 +566,15 @@ variant0 name val =
 -}
 variant1 :
     String
+    -> m
     -> (a -> v)
     -> Schema m a
     -> CustomBuilder m ((a -> Value) -> b) v
     -> CustomBuilder m b v
-variant1 name ctor s =
+variant1 name m ctor s =
     variant
         name
+        m
         (\c a ->
             c
                 [ encode s a
@@ -588,14 +592,16 @@ variant1 name ctor s =
 -}
 variant2 :
     String
+    -> m
     -> (a -> b -> v)
     -> Schema m a
     -> Schema m b
     -> CustomBuilder m ((a -> b -> Value) -> c) v
     -> CustomBuilder m c v
-variant2 name ctor sa sb =
+variant2 name m ctor sa sb =
     variant
         name
+        m
         (\c a b ->
             c
                 [ encode sa a
@@ -620,15 +626,17 @@ variant2 name ctor sa sb =
 -}
 variant3 :
     String
+    -> m
     -> (a -> b -> c -> v)
     -> Schema m a
     -> Schema m b
     -> Schema m c
     -> CustomBuilder m ((a -> b -> c -> Value) -> d) v
     -> CustomBuilder m d v
-variant3 name ctor sa sb sc =
+variant3 name m ctor sa sb sc =
     variant
         name
+        m
         (\c a b d ->
             c
                 [ encode sa a
@@ -709,6 +717,7 @@ toExternalType namesSeen meta =
                     (\v ->
                         { args = List.map (toExternalType seen) v.args
                         , name = v.name
+                        , meta = v.meta
                         }
                     )
                     vs

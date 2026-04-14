@@ -49,9 +49,9 @@ schema_Size =
                 Large b ->
                     large b
         )
-        |> Schema.variant1 "Small" Small (Schema.int ())
-        |> Schema.variant1 "Medium" Medium (Schema.string ())
-        |> Schema.variant1 "Large" Large (Schema.bool ())
+        |> Schema.variant1 "Small" () Small (Schema.int ())
+        |> Schema.variant1 "Medium" () Medium (Schema.string ())
+        |> Schema.variant1 "Large" () Large (Schema.bool ())
         |> Schema.buildCustom ()
 
 
@@ -72,10 +72,11 @@ schema_Html =
                     text str
         )
         |> Schema.variant2 "Element"
+            ()
             Element
             (Schema.string ())
             (Schema.list () (Schema.lazy () "Html" (\_ -> schema_Html)))
-        |> Schema.variant1 "Text" Text (Schema.string ())
+        |> Schema.variant1 "Text" () Text (Schema.string ())
         |> Schema.buildCustom ()
 
 

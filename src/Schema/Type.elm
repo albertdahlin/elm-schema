@@ -45,6 +45,7 @@ type alias CustomType_Args m =
 
 type alias CustomType_Variant m =
     { name : String
+    , meta : m
     , args : List (Node m)
     }
 

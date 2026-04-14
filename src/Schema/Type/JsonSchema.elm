@@ -182,9 +182,7 @@ toJsonSchema_Custom : List (Type.CustomType_Variant (Meta m)) -> Value
 toJsonSchema_Custom variants =
     JE.object
         [ ( "anyOf"
-          , JE.list
-                (\variant -> toJsonSchema_Variant variant.name variant.args)
-                variants
+          , JE.list toJsonSchema_Variant variants
           )
         ]
 
@@ -199,21 +197,23 @@ toJsonSchema_Tag name =
     )
 
 
-toJsonSchema_Variant : String -> List (Node m) -> Value
-toJsonSchema_Variant name metas =
+toJsonSchema_Variant : Type.CustomType_Variant (Meta m) -> Value
+toJsonSchema_Variant variant =
     JE.object
-        [ ( "type", JE.string "object" )
-        , ( "properties"
-          , JE.object
-                [ toJsonSchema_Tag name
-                , ( "args", toJsonSchema_Tuple metas |> JE.object )
+        ([ ( "type", JE.string "object" )
+         , ( "properties"
+           , JE.object
+                [ toJsonSchema_Tag variant.name
+                , ( "args", toJsonSchema_Tuple variant.args |> JE.object )
                 ]
-          )
-        , ( "required"
-          , JE.list JE.string [ "tag", "args" ]
-          )
-        , ( "additionalProperties", JE.bool False )
-        ]
+           )
+         , ( "required"
+           , JE.list JE.string [ "tag", "args" ]
+           )
+         , ( "additionalProperties", JE.bool False )
+         ]
+            ++ metaFields variant.meta
+        )
 
 
 toJsonSchema_Tuple : List (Node m) -> List ( String, Value )
