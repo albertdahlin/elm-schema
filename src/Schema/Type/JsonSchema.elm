@@ -172,7 +172,7 @@ toJsonSchema_Named meta =
             JE.object (toJsonSchemaHelp meta)
 
 
-toJsonSchema_Custom : List { name : String, args : List (Node m) } -> Value
+toJsonSchema_Custom : List (Type.CustomType_Variant (Meta m)) -> Value
 toJsonSchema_Custom variants =
     JE.object
         [ ( "anyOf"
@@ -236,7 +236,7 @@ toJsonSchema_Tuple metas =
     ]
 
 
-gatherDefs : Node m -> Dict String (List { name : String, args : List (Node m) })
+gatherDefs : Node m -> Dict String (List (Type.CustomType_Variant (Meta m)))
 gatherDefs meta =
     case meta.type_ of
         Type.Unit ->

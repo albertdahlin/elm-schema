@@ -1,12 +1,12 @@
 module Schema.Type exposing
-    ( Node, Type(..)
+    ( Node, Type(..), CustomType_Variant
     , StringOptions, Sanitize(..), defaultStringOpts, sanitize, sanitizeAll
     , gatherNamed, isRecursive
     )
 
 {-| Types
 
-@docs Node, Type
+@docs Node, Type, CustomType_Variant
 @docs StringOptions, Sanitize, defaultStringOpts, sanitize, sanitizeAll
 @docs gatherNamed, isRecursive
 
@@ -39,7 +39,13 @@ type Type m
 
 type alias CustomType_Args m =
     { name : String
-    , variants : List { name : String, args : List (Node m) }
+    , variants : List (CustomType_Variant m)
+    }
+
+
+type alias CustomType_Variant m =
+    { name : String
+    , args : List (Node m)
     }
 
 

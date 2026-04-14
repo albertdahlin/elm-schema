@@ -150,7 +150,7 @@ fromTypeHelp limit namedTypes meta =
                     Fuzz.invalid ("Could not find recursive type: " ++ name)
 
 
-variantFuzzers : Int -> Dict String (Type.Node m) -> { name : String, args : List (Type.Node m) } -> Fuzzer Value
+variantFuzzers : Int -> Dict String (Type.Node m) -> Type.CustomType_Variant m -> Fuzzer Value
 variantFuzzers limit namedTypes variant =
     List.map (fromTypeHelp limit namedTypes) variant.args
         |> Fuzz.sequence
