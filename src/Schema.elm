@@ -352,9 +352,14 @@ pair m sa sb =
     Schema
         { meta = emptyMeta m (Tuple [ unwrapType sa, unwrapType sb ])
         , decoder =
-            Decode.map2 Tuple.pair
-                (Decode.index 0 (decoder sa))
-                (Decode.index 1 (decoder sb))
+            Decode.oneOf
+                [ Decode.map2 Tuple.pair
+                    (Decode.index 0 (decoder sa))
+                    (Decode.index 1 (decoder sb))
+                , Decode.map2 Tuple.pair
+                    (Decode.field "0" (decoder sa))
+                    (Decode.field "1" (decoder sb))
+                ]
         , version = Nothing
         , encode =
             \( a, b ) ->
@@ -377,15 +382,20 @@ triple m sa sb sc =
     Schema
         { meta = emptyMeta m (Tuple [ unwrapType sa, unwrapType sb, unwrapType sc ])
         , decoder =
-            Decode.map3 (\a b c -> ( a, b, c ))
-                (Decode.index 0 (decoder sa))
-                (Decode.index 1 (decoder sb))
-                (Decode.index 2 (decoder sc))
+            Decode.oneOf
+                [ Decode.map3 (\a b c -> ( a, b, c ))
+                    (Decode.index 0 (decoder sa))
+                    (Decode.index 1 (decoder sb))
+                    (Decode.index 2 (decoder sc))
+                , Decode.map3 (\a b c -> ( a, b, c ))
+                    (Decode.field "0" (decoder sa))
+                    (Decode.field "1" (decoder sb))
+                    (Decode.field "2" (decoder sc))
+                ]
         , version = Nothing
         , encode =
             \( a, b, c ) ->
-                Encode.list
-                    identity
+                Encode.list identity
                     [ encode sa a
                     , encode sb b
                     , encode sc c
@@ -566,7 +576,11 @@ variant1 name ctor s =
                 [ encode s a
                 ]
         )
-        (Decode.map ctor (Decode.index 0 (decoder s)))
+        (Decode.oneOf
+            [ Decode.map ctor (Decode.index 0 (decoder s))
+            , Decode.map ctor (Decode.field "0" (decoder s))
+            ]
+        )
         [ unwrapType s ]
 
 
@@ -588,9 +602,14 @@ variant2 name ctor sa sb =
                 , encode sb b
                 ]
         )
-        (Decode.map2 ctor
-            (Decode.index 0 (decoder sa))
-            (Decode.index 1 (decoder sb))
+        (Decode.oneOf
+            [ Decode.map2 ctor
+                (Decode.index 0 (decoder sa))
+                (Decode.index 1 (decoder sb))
+            , Decode.map2 ctor
+                (Decode.field "0" (decoder sa))
+                (Decode.field "1" (decoder sb))
+            ]
         )
         [ unwrapType sa
         , unwrapType sb
@@ -617,10 +636,16 @@ variant3 name ctor sa sb sc =
                 , encode sc d
                 ]
         )
-        (Decode.map3 ctor
-            (Decode.index 0 (decoder sa))
-            (Decode.index 1 (decoder sb))
-            (Decode.index 2 (decoder sc))
+        (Decode.oneOf
+            [ Decode.map3 ctor
+                (Decode.index 0 (decoder sa))
+                (Decode.index 1 (decoder sb))
+                (Decode.index 2 (decoder sc))
+            , Decode.map3 ctor
+                (Decode.field "0" (decoder sa))
+                (Decode.field "1" (decoder sb))
+                (Decode.field "2" (decoder sc))
+            ]
         )
         [ unwrapType sa
         , unwrapType sb

@@ -126,20 +126,36 @@ decoderHelp namedTypes meta =
                 |> JD.map Float
 
         Type.Tuple types ->
-            types
-                |> List.indexedMap
-                    (\i typeMeta ->
-                        JD.index i (decoderHelp namedTypes typeMeta)
-                    )
-                |> List.foldl
-                    (\itemDecoder accDecoder ->
-                        JD.map2
-                            Array.push
-                            itemDecoder
-                            accDecoder
-                    )
-                    (JD.succeed Array.empty)
-                |> JD.map Tuple
+            JD.oneOf
+                [ types
+                    |> List.indexedMap
+                        (\i typeMeta ->
+                            JD.field (String.fromInt i) (decoderHelp namedTypes typeMeta)
+                        )
+                    |> List.foldl
+                        (\itemDecoder accDecoder ->
+                            JD.map2
+                                Array.push
+                                itemDecoder
+                                accDecoder
+                        )
+                        (JD.succeed Array.empty)
+                    |> JD.map Tuple
+                , types
+                    |> List.indexedMap
+                        (\i typeMeta ->
+                            JD.index i (decoderHelp namedTypes typeMeta)
+                        )
+                    |> List.foldl
+                        (\itemDecoder accDecoder ->
+                            JD.map2
+                                Array.push
+                                itemDecoder
+                                accDecoder
+                        )
+                        (JD.succeed Array.empty)
+                    |> JD.map Tuple
+                ]
 
         Type.Maybe justType ->
             JD.nullable (decoderHelp namedTypes justType)
@@ -192,19 +208,34 @@ decoderHelp namedTypes meta =
                             [ variant ] ->
                                 let
                                     argsDecoder =
-                                        variant.args
-                                            |> List.indexedMap
-                                                (\i argMeta ->
-                                                    JD.index i (decoderHelp namedTypes argMeta)
-                                                )
-                                            |> List.foldl
-                                                (\argDecoder accDecoder ->
-                                                    JD.map2
-                                                        Array.push
-                                                        argDecoder
-                                                        accDecoder
-                                                )
-                                                (JD.succeed Array.empty)
+                                        JD.oneOf
+                                            [ variant.args
+                                                |> List.indexedMap
+                                                    (\i argMeta ->
+                                                        JD.field (String.fromInt i) (decoderHelp namedTypes argMeta)
+                                                    )
+                                                |> List.foldl
+                                                    (\argDecoder accDecoder ->
+                                                        JD.map2
+                                                            Array.push
+                                                            argDecoder
+                                                            accDecoder
+                                                    )
+                                                    (JD.succeed Array.empty)
+                                            , variant.args
+                                                |> List.indexedMap
+                                                    (\i argMeta ->
+                                                        JD.index i (decoderHelp namedTypes argMeta)
+                                                    )
+                                                |> List.foldl
+                                                    (\argDecoder accDecoder ->
+                                                        JD.map2
+                                                            Array.push
+                                                            argDecoder
+                                                            accDecoder
+                                                    )
+                                                    (JD.succeed Array.empty)
+                                            ]
                                 in
                                 JD.field "args" argsDecoder
                                     |> JD.map (Variant tag)

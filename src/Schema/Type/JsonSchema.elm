@@ -1,13 +1,12 @@
 module Schema.Type.JsonSchema exposing (fromType, Meta)
 
-{-| Generate a JSON Schema (Draft 7) from a `Schema.Type.Node`
+{-| Generate a JSON Schema for OpenAI Structured Output from a `Schema.Type.Node`
 
 @docs fromType, Meta
 
 -}
 
 import Dict exposing (Dict)
-import Json.Decode as JD exposing (Decoder)
 import Json.Encode as JE exposing (Value)
 import Schema.Type as Type exposing (Type)
 
@@ -31,22 +30,25 @@ fromType name meta =
             Type.gatherNamed meta
     in
     JE.object
-        [ ( "$schema", JE.string "http://json-schema.org/draft-07/schema#" )
-        , ( "type", JE.string "json_schema" )
-        , ( "name", JE.string name )
-        , ( "strict", JE.bool True )
-        , ( "schema"
-          , ( "$defs"
-            , JE.object
-                (Dict.toList defs
-                    |> List.map
-                        (\( typeName, def ) ->
-                            ( String.toLower typeName, toJsonSchema_Named def )
+        [ ( "type", JE.string "json_schema" )
+        , ( "json_schema"
+          , JE.object
+                [ ( "name", JE.string name )
+                , ( "strict", JE.bool True )
+                , ( "schema"
+                  , ( "$defs"
+                    , JE.object
+                        (Dict.toList defs
+                            |> List.map
+                                (\( typeName, def ) ->
+                                    ( String.toLower typeName, toJsonSchema_Named def )
+                                )
                         )
-                )
-            )
-                :: toJsonSchemaHelp meta
-                |> JE.object
+                    )
+                        :: toJsonSchemaHelp meta
+                        |> JE.object
+                  )
+                ]
           )
         ]
 
@@ -98,8 +100,15 @@ toJsonSchemaHelp meta =
                 "array"
                 ++ [ ( "items"
                      , JE.object
-                        [ ( "k", toJsonSchemaHelp keyType |> JE.object )
-                        , ( "v", toJsonSchemaHelp valueType |> JE.object )
+                        [ ( "type", JE.string "object" )
+                        , ( "properties"
+                          , JE.object
+                                [ ( "k", toJsonSchemaHelp keyType |> JE.object )
+                                , ( "v", toJsonSchemaHelp valueType |> JE.object )
+                                ]
+                          )
+                        , ( "required", JE.list JE.string [ "k", "v" ] )
+                        , ( "additionalProperties", JE.bool False )
                         ]
                      )
                    ]
@@ -122,15 +131,13 @@ toJsonSchemaHelp meta =
                    ]
 
         Type.Maybe itemType ->
-            toJsonSchemaHelp itemType
-                |> List.map
-                    (\( k, v ) ->
-                        if k == "type" then
-                            ( k, [ v, JE.string "null" ] |> JE.list identity )
-
-                        else
-                            ( k, v )
-                    )
+            [ ( "anyOf"
+              , JE.list identity
+                    [ JE.object (toJsonSchemaHelp itemType)
+                    , JE.object [ ( "type", JE.string "null" ) ]
+                    ]
+              )
+            ]
 
         Type.Set itemType ->
             toSchemaObject
@@ -223,79 +230,18 @@ toJsonSchema_Variant name metas =
 
 
 toJsonSchema_Tuple : List (Node m) -> List ( String, Value )
-toJsonSchema_Tuple metas =
-    let
-        argsCount =
-            List.length metas
-    in
-    [ ( "type", JE.string "array" )
-    , ( "prefixItems", JE.list (toJsonSchemaHelp >> JE.object) metas )
-    , ( "items", JE.object [ ( "type", JE.string "null" ) ] )
-    , ( "minItems", JE.int argsCount )
-    , ( "maxItems", JE.int argsCount )
+toJsonSchema_Tuple nodes =
+    [ ( "type", JE.string "object" )
+    , ( "properties"
+      , JE.object
+            (List.indexedMap
+                (\i node -> ( String.fromInt i, toJsonSchemaHelp node |> JE.object ))
+                nodes
+            )
+      )
+    , ( "required"
+      , JE.list JE.string
+            (List.indexedMap (\i _ -> String.fromInt i) nodes)
+      )
+    , ( "additionalProperties", JE.bool False )
     ]
-
-
-gatherDefs : Node m -> Dict String (List (Type.CustomType_Variant (Meta m)))
-gatherDefs meta =
-    case meta.type_ of
-        Type.Unit ->
-            Dict.empty
-
-        Type.String _ ->
-            Dict.empty
-
-        Type.Uuid ->
-            Dict.empty
-
-        Type.Bool ->
-            Dict.empty
-
-        Type.Int ->
-            Dict.empty
-
-        Type.Float ->
-            Dict.empty
-
-        Type.List itemType ->
-            gatherDefs itemType
-
-        Type.Array itemType ->
-            gatherDefs itemType
-
-        Type.Maybe itemType ->
-            gatherDefs itemType
-
-        Type.Dict keyType valueType ->
-            gatherDefs valueType
-
-        Type.Set itemType ->
-            gatherDefs itemType
-
-        Type.Tuple types ->
-            List.foldl
-                (\t acc -> Dict.union acc (gatherDefs t))
-                Dict.empty
-                types
-
-        Type.Record fields ->
-            List.foldl
-                (\( _, fieldType ) acc -> Dict.union acc (gatherDefs fieldType))
-                Dict.empty
-                fields
-
-        Type.CustomType args ->
-            List.foldl
-                (\variant acc ->
-                    Dict.union acc
-                        (List.foldl
-                            (\arg acc2 -> Dict.union acc2 (gatherDefs arg))
-                            Dict.empty
-                            variant.args
-                        )
-                )
-                (Dict.singleton args.name args.variants)
-                args.variants
-
-        Type.Recursive name ->
-            Dict.empty
