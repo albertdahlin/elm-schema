@@ -17,7 +17,8 @@ type alias Node m =
 
 type alias Meta m =
     { m
-        | description : Maybe String
+        | name : String
+        , description : String
     }
 
 
@@ -56,13 +57,22 @@ fromType name meta =
 toSchemaObject : Node m -> String -> List ( String, Value )
 toSchemaObject node type_ =
     ( "type", JE.string type_ )
-        :: (case node.meta.description of
-                Just desc ->
-                    [ ( "description", JE.string desc )
-                    ]
+        :: metaFields node.meta
 
-                Nothing ->
-                    []
+
+metaFields : Meta m -> List ( String, Value )
+metaFields meta =
+    (if String.isEmpty meta.name then
+        []
+
+     else
+        [ ( "title", JE.string meta.name ) ]
+    )
+        ++ (if String.isEmpty meta.description then
+                []
+
+            else
+                [ ( "description", JE.string meta.description ) ]
            )
 
 
