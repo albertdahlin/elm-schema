@@ -204,25 +204,13 @@ toJsonSchema_Variant name metas =
     JE.object
         [ ( "type", JE.string "object" )
         , ( "properties"
-          , toJsonSchema_Tag name
-                :: (if List.isEmpty metas then
-                        []
-
-                    else
-                        [ ( "args", toJsonSchema_Tuple metas |> JE.object )
-                        ]
-                   )
-                |> JE.object
+          , JE.object
+                [ toJsonSchema_Tag name
+                , ( "args", toJsonSchema_Tuple metas |> JE.object )
+                ]
           )
         , ( "required"
-          , "tag"
-                :: (if List.isEmpty metas then
-                        []
-
-                    else
-                        [ "args" ]
-                   )
-                |> JE.list JE.string
+          , JE.list JE.string [ "tag", "args" ]
           )
         , ( "additionalProperties", JE.bool False )
         ]
