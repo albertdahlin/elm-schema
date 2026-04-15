@@ -3,7 +3,7 @@
     "name": "albertdahlin/elm-schema",
     "summary": "Describe types using schema",
     "license": "MIT",
-    "version": "1.1.0",
+    "version": "1.0.0",
     "exposed-modules": [
         "Schema",
         "Schema.Type",
