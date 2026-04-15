@@ -1,7 +1,32 @@
 module Schema.Fuzzer exposing (fromSchema, fromType)
 
-{-| This module provides functionality to generate random data (fuzzing) based on a given schema.
-It uses the elm-explorations/elm-test library to create fuzzers for various data types defined in the schema.
+{-| Generate [`elm-test`][elm-test] fuzzers from a
+[`Schema`](Schema) or a [`Schema.Type.Node`](Schema-Type#Node). Useful
+for property-based testing (encode/decode round-trips, invariants
+over your type), and for seeding data in demos and tests.
+
+The generator works at the JSON level: it produces a
+`Json.Encode.Value` shaped like the schema and then, for
+[`fromSchema`](#fromSchema), decodes it through the schema's
+decoder. That guarantees the generated Elm values always round-trip
+through the schema.
+
+Generation is depth-bounded (initial budget: 10), so recursive types
+and large containers don't blow up. Once the budget runs out,
+container types produce empty values, `Maybe` produces `null`, and
+recursive references likewise stop descending.
+
+Known limitations:
+
+  - String schemas ignore [`StringOptions`](Schema-Type#StringOptions)
+    — `minLength`/`maxLength`/`sanitize` are not respected by the
+    generator.
+  - `Set` is fuzzed as a plain list; collisions are possible and
+    will be collapsed by `Set.fromList` on decode, so the generated
+    set may be smaller than the list.
+  - UUID is fuzzed as an arbitrary string, not as a valid UUID.
+
+[elm-test]: https://package.elm-lang.org/packages/elm-explorations/test/latest/
 
 @docs fromSchema, fromType
 
@@ -15,7 +40,29 @@ import Schema exposing (Schema)
 import Schema.Type as Type exposing (Type)
 
 
-{-| TODO: document
+{-| Produce a `Fuzzer` of values of your Elm type.
+
+Internally: generate JSON via [`fromType`](#fromType), then decode it
+through the schema's decoder. A decode failure becomes
+`Fuzz.invalid` with the decoder's error message — so if you see
+invalid fuzzer output, it means the schema's encoder and decoder
+disagree, which is worth treating as a bug.
+
+    import Test exposing (Test, fuzz)
+    import Expect
+    import Schema
+    import Schema.Fuzzer
+
+    roundTrip : Test
+    roundTrip =
+        fuzz (Schema.Fuzzer.fromSchema schema_User)
+            "encode/decode round-trip"
+            (\user ->
+                Schema.encode schema_User user
+                    |> Json.Decode.decodeValue (Schema.decoder schema_User)
+                    |> Expect.equal (Ok user)
+            )
+
 -}
 fromSchema : Schema m a -> Fuzzer a
 fromSchema schema =
@@ -34,7 +81,18 @@ fromSchema schema =
             )
 
 
-{-| TODO: document
+{-| Produce a `Fuzzer` of JSON values shaped like the given type
+tree.
+
+This is the lower-level primitive that [`fromSchema`](#fromSchema)
+builds on. Reach for it directly when you only need the JSON — for
+example when testing an encoder that wasn't built with this package,
+or when feeding generated payloads to something outside Elm.
+
+Named types (records, custom types) reachable from the root are
+resolved via [`Schema.Type.gatherNamed`](Schema-Type#gatherNamed), so
+`Recursive` references are followed correctly up to the internal
+depth budget.
 -}
 fromType : Type.Node m -> Fuzzer Value
 fromType meta =

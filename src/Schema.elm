@@ -10,8 +10,17 @@ module Schema exposing
     , newVersion, dropVersions
     )
 
-{-| SCHEMA
-A library to define schemas for data types, with JSON encoding/decoding and type description.
+{-| Define a schema for an Elm type and get a JSON encoder, decoder,
+and introspectable type description from a single value. See the
+[README][readme] for an overview.
+
+Every builder takes a _meta_ value as its first argument. This is
+whatever you want to attach to that node — a label, a description,
+or a record of form-hint fields — and it flows unchanged into the
+[`Schema.Type.Node`](Schema-Type#Node) tree returned by
+[`toType`](#toType). If you don't need it, pass `()`.
+
+[readme]: https://package.elm-lang.org/packages/albertdahlin/elm-schema/latest/
 
 @docs Schema
 
@@ -33,12 +42,12 @@ A library to define schemas for data types, with JSON encoding/decoding and type
         , value : Int
         }
 
-    schema_Record : Schema Record
+    schema_Record : Schema () Record
     schema_Record =
         Schema.record Record
-            |> Schema.field "id" .id Schema.string
-            |> Schema.field "value" .value Schema.int
-            |> Schema.buildRecord
+            |> Schema.field "id" .id (Schema.string ())
+            |> Schema.field "value" .value (Schema.int ())
+            |> Schema.buildRecord ()
 
 @docs RecordBuilder, record, field, buildRecord
 
@@ -51,7 +60,7 @@ A library to define schemas for data types, with JSON encoding/decoding and type
         | Two String Int
         | Three String Int Float
 
-    schema_CustomType : Schema CustomType
+    schema_CustomType : Schema () CustomType
     schema_CustomType =
         Schema.custom "CustomType"
             (\zero toOne toTwo toThree value ->
@@ -68,21 +77,21 @@ A library to define schemas for data types, with JSON encoding/decoding and type
                     Three str i f ->
                         toThree str i f
             )
-            |> Schema.variant0 "Zero" Zero
-            |> Schema.variant1 "One" One Schema.string
-            |> Schema.variant2 "Two" Two Schema.string Schema.int
-            |> Schema.variant3 "Three" Three Schema.string Schema.int Schema.float
-            |> Schema.buildCustom
+            |> Schema.variant0 "Zero" () Zero
+            |> Schema.variant1 "One" () One (Schema.string ())
+            |> Schema.variant2 "Two" () Two (Schema.string ()) (Schema.int ())
+            |> Schema.variant3 "Three" () Three (Schema.string ()) (Schema.int ()) (Schema.float ())
+            |> Schema.buildCustom ()
 
 @docs CustomBuilder, custom, variant0, variant1, variant2, variant3, buildCustom
 
 
-## Recrusive Types
+## Recursive Types
 
     type Tree a
         = Node a (List (Tree a))
 
-    schema_Tree : String -> Schema a -> Schema (Tree a)
+    schema_Tree : String -> Schema () a -> Schema () (Tree a)
     schema_Tree typeName nodeSchema =
         Schema.custom typeName
             (\nodeConstructor value ->
@@ -91,10 +100,11 @@ A library to define schemas for data types, with JSON encoding/decoding and type
                         nodeConstructor a children
             )
             |> Schema.variant2 "Node"
+                ()
                 Node
                 nodeSchema
-                (Schema.list
-                    (Schema.lazy typeName
+                (Schema.list ()
+                    (Schema.lazy () typeName
                         (\_ ->
                             schema_Tree
                                 typeName
@@ -102,7 +112,7 @@ A library to define schemas for data types, with JSON encoding/decoding and type
                         )
                     )
                 )
-            |> Schema.buildCustom
+            |> Schema.buildCustom ()
 
 
 ### Important!
@@ -113,25 +123,32 @@ when generating type descriptions.
 In this case we have a parametrized recursive type (`Tree a`), the
 name must be different for each instantiation of `a`.
 
-    schema_TreeInt : Schema (Tree Int)
+    schema_TreeInt : Schema () (Tree Int)
     schema_TreeInt =
-        schema_Tree "Tree_Int" Schema.int
+        schema_Tree "Tree_Int" (Schema.int ())
 
-    schema_TreeString : Schema (Tree String)
+    schema_TreeString : Schema () (Tree String)
     schema_TreeString =
-        schema_Tree "Tree_String" Schema.string
+        schema_Tree "Tree_String" (Schema.string ())
 
 @docs lazy
 
 
 ## Type Description
 
-@docs toType, label, description
+@docs toType
 
 
 ## JSON Encode / Decode
 
 @docs encode, decoder
+
+
+## Versioning
+
+See the [README][readme] for the wire format and decode dispatch
+rules.
+
 @docs newVersion, dropVersions
 
 -}
@@ -180,7 +197,10 @@ emptyMeta m type_ =
     }
 
 
-{-| TODO: document
+{-| A schema for Elm values of type `a`, carrying meta values of type
+`m` on every node. Build one with the functions below and consume it
+with [`encode`](#encode), [`decoder`](#decoder), or
+[`toType`](#toType).
 -}
 type Schema m a
     = Schema
@@ -202,7 +222,7 @@ type alias Version a =
 -- SCALAR TYPES
 
 
-{-| TODO: document
+{-| A `()` schema. Encodes to JSON `null`; decodes any JSON value as `()`.
 -}
 null : m -> Schema m ()
 null m =
@@ -214,7 +234,9 @@ null m =
         }
 
 
-{-| TODO: document
+{-| A schema that carries a fixed value. Encodes to JSON `null`;
+decodes any JSON value as the given constant. Useful as a payload for
+variants or fields that have no runtime data.
 -}
 const : m -> a -> Schema m a
 const m a =
@@ -250,7 +272,9 @@ stringWith m opts =
         }
 
 
-{-| TODO: document
+{-| A string schema tagged as a UUID. Encodes and decodes like
+[`string`](#string), but downstream tooling treats it specially —
+for example, the JSON Schema generator emits `"format": "uuid"`.
 -}
 uuid : m -> Schema m String
 uuid m =
@@ -262,7 +286,7 @@ uuid m =
         }
 
 
-{-| TODO: document
+{-| A `Bool` schema, backed by JSON `true`/`false`.
 -}
 bool : m -> Schema m Bool
 bool m =
@@ -274,7 +298,7 @@ bool m =
         }
 
 
-{-| TODO: document
+{-| An `Int` schema, backed by JSON numbers.
 -}
 int : m -> Schema m Int
 int m =
@@ -302,7 +326,7 @@ float m =
 -- COMPOSITE TYPES
 
 
-{-| TODO: document
+{-| A `List` of values, encoded as a JSON array.
 -}
 list : m -> Schema m a -> Schema m (List a)
 list m s =
@@ -314,7 +338,7 @@ list m s =
         }
 
 
-{-| TODO: document
+{-| An `Array` of values, encoded as a JSON array.
 -}
 array : m -> Schema m a -> Schema m (Array a)
 array m s =
@@ -326,7 +350,8 @@ array m s =
         }
 
 
-{-| TODO: document
+{-| An optional value. Encodes `Nothing` as JSON `null` and `Just x`
+as the inner schema's encoding of `x`.
 -}
 maybe : m -> Schema m a -> Schema m (Maybe a)
 maybe m s =
@@ -345,7 +370,9 @@ maybe m s =
         }
 
 
-{-| TODO: document
+{-| A 2-tuple. Encodes as a JSON array `[a, b]`. The decoder also
+accepts an object with keys `"0"` and `"1"` — the shape produced by
+[`Schema.Type.JsonSchema`](Schema-Type-JsonSchema).
 -}
 pair : m -> Schema m a -> Schema m b -> Schema m ( a, b )
 pair m sa sb =
@@ -370,7 +397,9 @@ pair m sa sb =
         }
 
 
-{-| TODO: document
+{-| A 3-tuple. Encodes as a JSON array `[a, b, c]`. Like
+[`pair`](#pair), the decoder also accepts the object form with keys
+`"0"`, `"1"`, `"2"`.
 -}
 triple :
     m
@@ -403,7 +432,8 @@ triple m sa sb sc =
         }
 
 
-{-| TODO: document
+{-| A dictionary. Encoded as a JSON array of `{"k": …, "v": …}`
+objects rather than an object, so keys are not restricted to strings.
 -}
 dict : m -> Schema m comparable -> Schema m v -> Schema m (Dict comparable v)
 dict m sk sv =
@@ -428,7 +458,8 @@ dict m sk sv =
         }
 
 
-{-| TODO: document
+{-| A `Set`, encoded as a JSON array. Duplicates and ordering are
+collapsed by `Set.fromList` on decode.
 -}
 set : m -> Schema m comparable -> Schema m (Set comparable)
 set m s =
@@ -444,7 +475,9 @@ set m s =
 -- RECORDS
 
 
-{-| TODO: document
+{-| Intermediate builder produced by [`record`](#record). Chain
+[`field`](#field) calls to describe each field, then close with
+[`buildRecord`](#buildRecord).
 -}
 type RecordBuilder m constructor record
     = RecordBuilder
@@ -454,7 +487,15 @@ type RecordBuilder m constructor record
         }
 
 
-{-| TODO: document
+{-| Start a record schema from your type alias constructor. Chain
+[`field`](#field) for each field in declaration order and finish
+with [`buildRecord`](#buildRecord).
+
+    Schema.record User
+        |> Schema.field "id" .id (Schema.string ())
+        |> Schema.field "age" .age (Schema.int ())
+        |> Schema.buildRecord ()
+
 -}
 record : constructor -> RecordBuilder m constructor record
 record ctor =
@@ -465,7 +506,9 @@ record ctor =
         }
 
 
-{-| TODO: document
+{-| Add a field to a record builder. Arguments, in order: the JSON
+field name, a getter from your record, and the schema for the field's
+type.
 -}
 field :
     String
@@ -487,7 +530,8 @@ field name get s (RecordBuilder r) =
         }
 
 
-{-| TODO: document
+{-| Close a record builder. The first argument is the meta value
+attached to the record itself (distinct from each field's meta).
 -}
 buildRecord : m -> RecordBuilder m a a -> Schema m a
 buildRecord m (RecordBuilder r) =
@@ -503,7 +547,9 @@ buildRecord m (RecordBuilder r) =
 -- BUILD CUSTOM TYPES
 
 
-{-| TODO: document
+{-| Intermediate builder produced by [`custom`](#custom). Chain
+`variantN` calls for each constructor, then close with
+[`buildCustom`](#buildCustom).
 -}
 type CustomBuilder m match t
     = CustomBuilder
@@ -514,7 +560,20 @@ type CustomBuilder m match t
         }
 
 
-{-| TODO: document
+{-| Start a custom type schema.
+
+The `String` is the type's name. It appears in
+[`Schema.Type`](Schema-Type) output and — crucially — is how
+[`lazy`](#lazy) detects recursion, so it must match the name used in
+any `Schema.lazy` call that refers to this type.
+
+The second argument is a _match_ function: it receives one
+constructor function per variant (in the same order `variantN` calls
+are chained) followed by a value of your type, and returns a
+`Json.Encode.Value`. Pattern-match on the value and forward each
+variant's arguments to its corresponding constructor.
+
+See the module header for a full example.
 -}
 custom : String -> match -> CustomBuilder m match t
 custom name match =
@@ -545,7 +604,8 @@ variant name m match decoderArgs args (CustomBuilder c) =
         }
 
 
-{-| TODO: document
+{-| A zero-argument variant. Arguments: the tag name, the variant's
+meta, and the constructor value itself.
 -}
 variant0 :
     String
@@ -562,7 +622,8 @@ variant0 name m val =
         []
 
 
-{-| TODO: document
+{-| A one-argument variant. Arguments: the tag name, the variant's
+meta, the constructor function, and a schema for the argument.
 -}
 variant1 :
     String
@@ -588,7 +649,8 @@ variant1 name m ctor s =
         [ unwrapType s ]
 
 
-{-| TODO: document
+{-| A two-argument variant. Arguments: the tag name, the variant's
+meta, the constructor, and a schema for each argument in order.
 -}
 variant2 :
     String
@@ -622,7 +684,8 @@ variant2 name m ctor sa sb =
         ]
 
 
-{-| TODO: document
+{-| A three-argument variant. Arguments: the tag name, the variant's
+meta, the constructor, and a schema for each argument in order.
 -}
 variant3 :
     String
@@ -661,7 +724,14 @@ variant3 name m ctor sa sb sc =
         ]
 
 
-{-| TODO: document
+{-| Close a custom type builder. The first argument is the meta value
+for the type itself.
+
+Values encode as `{"tag": "<variantName>", "args": [a, b, …]}`.
+On decode, `args` may be either a JSON array or an object indexed
+`"0"`, `"1"`, … (the shape `Schema.Type.JsonSchema` emits). The
+decoder dispatches on `"tag"` and fails with `"Unknown variant:
+<tag>"` for unrecognised tags.
 -}
 buildCustom : m -> CustomBuilder m (a -> Value) a -> Schema m a
 buildCustom m (CustomBuilder c) =
@@ -687,7 +757,15 @@ buildCustom m (CustomBuilder c) =
 -- TYPE DESCRIPTION
 
 
-{-| TODO: document
+{-| Extract the type description as a
+[`Schema.Type.Node`](Schema-Type#Node). Feed it to
+[`Schema.Type.JsonSchema.fromType`](Schema-Type-JsonSchema#fromType)
+for a JSON Schema document, or to
+[`Schema.Fuzzer.fromType`](Schema-Fuzzer#fromType) for a fuzzer.
+
+[`lazy`](#lazy) references are resolved into
+[`Schema.Type.Recursive`](Schema-Type#Type) nodes when they close a
+cycle, so the returned tree is always finite.
 -}
 toType : Schema m a -> ExtType.Node m
 toType (Schema s) =
@@ -701,8 +779,6 @@ toExtMeta meta type_ =
     }
 
 
-{-| TODO: document
--}
 toExternalType : Set String -> Meta m -> ExtType.Node m
 toExternalType namesSeen meta =
     case meta.type_ of
@@ -797,7 +873,28 @@ toExternalType namesSeen meta =
 -- VERSIONING
 
 
-{-| TODO: document
+{-| Attach a migration on top of an existing schema. Arguments: the
+new version's tag, a migration function `old -> new`, the new
+schema, and the old schema. Designed to compose with `|>`:
+
+    schema_v2 : Schema () UserV2
+    schema_v2 =
+        schema_v1
+            |> Schema.newVersion "v2" migrateV1toV2 schema_v2Base
+
+    schema_v3 : Schema () UserV3
+    schema_v3 =
+        schema_v2
+            |> Schema.newVersion "v3" migrateV2toV3 schema_v3Base
+
+Each call preserves every prior version's decoder, composing them
+through the migration chain so the resulting schema's decoder can
+read every version written to date. Encoding always writes the
+_latest_ tag.
+
+Attach `newVersion` last — piping the result through another builder
+(`list`, `record`, etc.) drops the version chain, since those
+builders always reset `version` to `Nothing`.
 -}
 newVersion : String -> (old -> new) -> Schema m new -> Schema m old -> Schema m new
 newVersion tag oldToNew (Schema new) (Schema old) =
@@ -827,7 +924,16 @@ newVersion tag oldToNew (Schema new) (Schema old) =
         }
 
 
-{-| TODO: document
+{-| Return an otherwise-identical schema with its version chain
+removed. The resulting decoder tries, in order: the payload nested
+under `"#val"`, the raw payload, and finally `Decode.succeed`
+with the supplied default — so it cannot fail.
+
+`dropVersions` does **not** run the migration chain; it only strips
+the version envelope (tolerating its absence). Use it when you're
+done migrating and want a best-effort reader; use
+[`newVersion`](#newVersion) when you need older tagged payloads to
+be migrated forward.
 -}
 dropVersions : a -> Schema m a -> Schema m a
 dropVersions default (Schema s) =
@@ -874,7 +980,14 @@ unwrapVersion sc =
 -- RECURSIVE TYPES
 
 
-{-| -}
+{-| Break a recursive schema by deferring evaluation. The `String`
+must match the name passed to [`custom`](#custom) on the enclosing
+type — that's how [`toType`](#toType) detects the cycle and emits a
+reference instead of looping forever.
+
+For parametrized recursive types such as `Tree a`, give each
+instantiation a distinct name (see the module header example).
+-}
 lazy : m -> String -> (() -> Schema m a) -> Schema m a
 lazy m name fn =
     Schema
@@ -897,7 +1010,10 @@ encodeTagged tag value =
         ]
 
 
-{-| TODO: document
+{-| Encode a value through the schema. If the schema has a version
+chain attached (via [`newVersion`](#newVersion)), the output is
+wrapped as `{"#tag": "<latest>", "#val": <payload>}`; otherwise the
+raw payload is returned.
 -}
 encode : Schema m a -> a -> Value
 encode (Schema s) value =
@@ -930,7 +1046,17 @@ decoderTagged latestDecoder version =
         ]
 
 
-{-| TODO: document
+{-| Extract the JSON decoder.
+
+For a versioned schema, this reads `"#tag"` and dispatches to the
+matching decoder — the current one if the tag is the latest, an
+older one from the migration chain otherwise, or falls back to the
+un-tagged decoder for values written before versioning was
+introduced. Unknown tags fail with `"Unknown version: <tag>"`.
+
+For a non-versioned schema, this is lenient about the wrapper:
+either the raw payload or a `{"#val": …}`-wrapped value decodes
+successfully.
 -}
 decoder : Schema m a -> Decoder a
 decoder (Schema s) =

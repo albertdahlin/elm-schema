@@ -4,14 +4,13 @@ Define a schema once, and get:
 
 - a JSON **encoder** and **decoder** for your Elm type
 - an introspectable **type description** (`Schema.Type.Node`)
-- a [JSON Schema (Draft 7)][json-schema] document — useful for OpenAI
-  Structured Outputs, form generators, or documentation
+- a JSON Schema document for [OpenAI Structured Outputs][openai-so]
 - a random-value **fuzzer** for property tests
 - opt-in **schema versioning** with migrations
 
 No code generation, no compiler plugins — just a small builder API.
 
-[json-schema]: https://json-schema.org/
+[openai-so]: https://platform.openai.com/docs/guides/structured-outputs
 
 
 ## Installation
@@ -111,12 +110,19 @@ schema_TreeString = schema_Tree "Tree_String" (Schema.string ())
 ```
 
 
-## JSON Schema
+## JSON Schema for OpenAI Structured Outputs
 
 `Schema.Type.JsonSchema.fromType` turns a type node into a JSON Schema
-document. It is designed to be compatible with OpenAI Structured
-Outputs, so every named type becomes a `$defs` entry referenced via
-`$ref`.
+document targeting [OpenAI Structured Outputs][openai-so] — a
+constrained subset of JSON Schema, not plain Draft 7. Specifically:
+
+- every object sets `additionalProperties: false` and lists every
+  property in `required`
+- named types (records and custom types) are emitted once under
+  `$defs` and referenced via `$ref`
+- custom types are encoded as an `anyOf` over their variants, each
+  variant being an object with a `tag` const and an `args` object
+- `Maybe` is encoded as `anyOf [ …, { "type": "null" } ]`
 
 ```elm
 import Schema.Type.JsonSchema
